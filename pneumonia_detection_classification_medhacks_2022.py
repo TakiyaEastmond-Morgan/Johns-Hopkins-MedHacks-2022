@@ -26,7 +26,7 @@ Original file is located at
 ! unzip chest-xray-pneumonia
 
 # Commented out IPython magic to ensure Python compatibility.
-# import libraries
+# importing necessary libraries
 import numpy as np
 import pandas as pd 
 import random as rn
@@ -47,14 +47,23 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import seaborn as sns
 import glob
+from numpy import expand_dims
+from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
+from keras.preprocessing.image import ImageDataGenerator
+from matplotlib import pyplot
+import matplotlib.pyplot as plt
+from matplotlib.pyplot import figure
 
 # importing the image scanning libraries
 from skimage import color, exposure
 from sklearn.metrics import classification_report
 
+
 # importing libraries needed to manipulate file directory libraries for saving checkpoints
 import os
 import cv2
+
 
 # seed for repetition
 
@@ -116,18 +125,18 @@ plt.figure(figsize=(18, 8))
 sns.set_style("darkgrid")
 
 plt.subplot(1,2,1)
-sns.countplot(train_df['label'], palette = 'coolwarm')
-plt.title('Train data')
+sns.countplot(train_df['label'], palette = 'cool')
+plt.title('TRAIN')
 
 plt.subplot(1,2,2)
-sns.countplot(test_df['label'], palette = "hls")
-plt.title('Test data')
+sns.countplot(test_df['label'], palette = "coolwarm")
+plt.title('TEST')
 
 plt.show()
 
 def Show_example_image():
-    fig = plt.figure(figsize = (16, 16))
-    for idx in range(15):
+    fig = plt.figure(figsize = (12, 12))
+    for idx in range(20):
         plt.subplot(5, 5, idx+1)
         plt.imshow(train_df.iloc[idx]['image'])
         plt.title("{}".format(train_df.iloc[idx]['label']))
@@ -144,7 +153,7 @@ def lung_condition(label):
     else:
         return 1
 
-#Function for dividing data into arrays X and y
+#dividing data into 2 arrays.. x and y
 def splitdata(data):
     X = []
     y = []
@@ -153,17 +162,17 @@ def splitdata(data):
         y.append(lung_condition(label))
     return np.array(X), np.array(y)
 
-# Split data
+# splitting the data
 np.random.shuffle(train)
 np.random.shuffle(test)
 X_train, y_train = splitdata(train)
 X_test, y_test = splitdata(test)
 
-#  Grayscale conversion, normalization and table reshaping function for MLP
+#  converting to grayscale, normalizing, and reshaping the table
 def preprocesing_to_mlp(data):
     data1 = color.rgb2gray(data).reshape(-1, img_size * img_size).astype('float32')
     
-    # Data Normalization [0, 1]
+    # normalizing data
     data1 /= 255
     
     return data1
@@ -178,7 +187,6 @@ def draw_learning_curve(history, keys=['accuracy', 'loss']):
         plt.title('Learning Curve')
         plt.ylabel(key.title())
         plt.xlabel('Epoch')
-#         plt.ylim(ylim)
         plt.legend(['train', 'test'], loc='best')
     plt.show()
 
@@ -187,7 +195,7 @@ X_test = preprocesing(X_test)
 
 num_pixels = X_train.shape[1] 
 
-# one-hot encoding for target column
+# one-hot encoding target column
 y_train = to_categorical(y_train)
 y_test = to_categorical(y_test)
 
@@ -196,7 +204,7 @@ num_classes = y_train.shape[1]
 callbacks1 = [ 
     EarlyStopping(monitor = 'loss', patience = 6), 
     ReduceLROnPlateau(monitor = 'loss', patience = 3), 
-    ModelCheckpoint('/content/working/model.best1.hdf5',monitor='loss', save_best_only=True) # saving the best model
+    ModelCheckpoint('/content/working/model.best1.hdf5',monitor='loss', save_best_only=True) # this line is saving the best model ran
 ]
 
 """#### First model"""
@@ -204,12 +212,14 @@ callbacks1 = [
 def model1():
     
     return Sequential([
-        #input layer is automatic generation by keras
+        #input layer is automatically generated from keras
         
-        #hidden layer
+        # defining hidden layers
+        Dense(10, input_dim = num_pixels, activation='relu'),
+        Dense(500, input_dim = num_pixels, activation='relu'),
         Dense(1024, input_dim = num_pixels, activation='relu'),
-        
-        #output layer
+
+        #defining the output layer
         Dense(num_classes, activation='softmax')
     ])
 
@@ -219,14 +229,14 @@ model.summary()
 
 #Fitting the model
 learning_history = model.fit(X_train, y_train,
-          batch_size = 80, epochs = 50, verbose = 2,
+          batch_size = 80, epochs = 75, verbose = 2,
           callbacks = callbacks1,
           validation_data=(X_test, y_test));
 
-# Loading the best model in terms of the loss metric
+# loading the best model in terms of the loss metric
 model = load_model('/content/working/model.best1.hdf5')
 
-#Evaluation
+#evaluating the model
 score = model.evaluate(X_test, y_test, verbose = 0)
 print('Test loss: {}%'.format(score[0] * 100))
 print('Test accuracy: {}%'.format(score[1] * 100))
@@ -237,11 +247,11 @@ draw_learning_curve(learning_history)
 
 """# Data preparing for CNN"""
 
-#We need to rehaspe data again
+#reshaping the data again
 X_train, y_train = splitdata(train)
 X_test, y_test = splitdata(test)
 
-#Grayscale conversion, normalization and table reshaping function for CNN
+#Grayscale conversion, normalization and table reshaping
 def preprocesing_to_cnn(data):
     data1 = color.rgb2gray(data).reshape(-1, img_size, img_size, 1).astype('float32')
     data1 /= 200
@@ -315,13 +325,14 @@ learning_history = model.fit(X_train, y_train,
 
 model = load_model('/content/model.best2.hdf5')
 
-# Evaluation
+# evaluating the model
 score = model.evaluate(X_test, y_test, verbose = 0)
 print('Test loss: {}%'.format(score[0] * 100))
 print('Test accuracy: {}%'.format(score[1] * 100))
 
 print("MLP Error: %.2f%%" % (100 - score[1] * 100))
 
+# creating a visual
 draw_learning_curve(learning_history)
 
 """# Data Augmentation"""
@@ -344,20 +355,14 @@ train_gen = datagen.flow(X_train, y_train, batch_size = 32)
 
 """/content/chest_xray/train/NORMAL/IM-0115-0001.jpeg"""
 
-from numpy import expand_dims
-from keras.preprocessing.image import load_img
-from keras.preprocessing.image import img_to_array
-from keras.preprocessing.image import ImageDataGenerator
-from matplotlib import pyplot
-from matplotlib.pyplot import figure
-
+# defining the image
 img = load_img('/content/chest_xray/train/NORMAL/IM-0115-0001.jpeg')
 plt.imshow(img)
 
 data = img_to_array(img)
 samples = expand_dims(data, 0)
 
-#setting an array from which the algorith will randomly choose
+# creating an array
 datagen = ImageDataGenerator(featurewise_center = False,
         samplewise_center = False,
         featurewise_std_normalization = False, 
@@ -383,6 +388,7 @@ for i in range(4):
     plt.yticks([])
 plt.show()
 
+# defining the callback
 callbacks3 = [ 
     EarlyStopping(monitor = 'loss', patience = 7), 
     ReduceLROnPlateau(monitor = 'loss', patience = 4), 
@@ -401,12 +407,8 @@ def medhack22_v2():
         Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'),
         Conv2D(80, kernel_size=(3, 3), activation='relu', padding='same'),
         Conv2D(80, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(120, kernel_size=(3, 3), activation='relu', padding='same' ),
-        Conv2D(120, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(200, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(200, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(256, kernel_size=(3, 3), activation='relu', padding='same' ),
-        Conv2D(256, kernel_size=(3, 3), activation='relu', padding='same'),
+        Conv2D(100, kernel_size=(3, 3), activation='relu', padding='same' ),
+        Conv2D(100, kernel_size=(3, 3), activation='relu', padding='same'),
         BatchNormalization(),
         MaxPool2D(pool_size=(2, 2)),
         Dropout(0.25),
@@ -422,27 +424,6 @@ def medhack22_v2():
         Dense(num_classes, activation = "softmax")
         
     ])
-        Flatten(),
-       
-        Dense(1024, activation='relu'),
-        BatchNormalization(),
-        Dropout(0.5),
-        
-        Dense(512, activation='relu'),
-        BatchNormalization(),
-        Dropout(0.4),
-        
-        Dense(256, activation='relu'),
-        BatchNormalization(),
-        Dropout(0.3),
-        
-        Dense(64, activation='relu'),
-        BatchNormalization(),
-        Dropout(0.2),
-        
-        Dense(num_classes, activation = "softmax")
-        
-    ])
 
 """#### Fitting the model"""
 
@@ -453,18 +434,20 @@ learning_history = model.fit_generator((train_gen),
                                callbacks = callbacks3,
                         )
 
+#loading model
 model = load_model('/content/model.best3.hdf5')
 
-# Evaluate
+# evaluating the model
 score = model.evaluate(X_test, y_test, verbose = 0)
 print('Test loss: {}%'.format(score[0] * 100))
 print('Test accuracy: {}%'.format(score[1] * 100))
 
 print("MLP Error: %.2f%%" % (100 - score[1] * 100))
 
+#creating a visual for the model
 draw_learning_curve(learning_history)
 
-# Let's see where the model was invalid
+# checking for invalidity
 y_pred = model.predict(X_test)
 y_pred = np.argmax(y_pred, axis = 1)
 
@@ -475,7 +458,7 @@ def show_condition(num):
         return 'NORMAL'
     return 'PNEUMONIA'
 
-# Let's see the graph with the error amount for each label.
+# creating a visual
 cnt_error = []
 for idx, (a, b) in enumerate(zip(y_pre_test, y_pred)):
     if a == b: continue
@@ -487,7 +470,7 @@ plt.figure(figsize = (15, 7))
 sns.barplot([show_condition(x) for x in cnt_error[0]], cnt_error[1], palette="muted")
 plt.show()
 
-# Let's show images
+# viewing xrays
 cnt_ind = 1
 list_idx = []
 fig = plt.figure(figsize=(14, 14))
@@ -504,13 +487,11 @@ for idx, (a, b) in enumerate(zip(y_pre_test, y_pred)):
 
 """### Results"""
 
+# assessing the model's predictions
 print(classification_report(y_pre_test, y_pred))
 
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-def make_confusion_matrix(cf,
+# creating the confusion matrix
+def confusion_matrix(cf,
                           group_names=None,
                           categories='auto',
                           count=True,
@@ -523,9 +504,8 @@ def make_confusion_matrix(cf,
                           cmap='Blues',
                           title=None):
   
-    # plotting a Confusion Matrix using heatmap visualization.
-
-    # creating the text in each square
+    # plotting using heatmap
+    # creating text in each square
     blanks = ['' for i in range(cf.size)]
 
     if group_names and len(group_names)==cf.size:
@@ -547,12 +527,11 @@ def make_confusion_matrix(cf,
     box_labels = np.asarray(box_labels).reshape(cf.shape[0],cf.shape[1])
 
 
-    # generating summary texts
+    # generate summary
     if sum_stats:
         #Accuracy = diagonal sum / total observations
         accuracy  = np.trace(cf) / float(np.sum(cf))
 
-        # showing more statistics if it is a binary confusion matrix
         if len(cf)==2:
             #Metrics for Binary Confusion Matrices
             precision = cf[1,1] / sum(cf[:,1])
@@ -567,15 +546,15 @@ def make_confusion_matrix(cf,
 
 #setting parameters
     if figsize==None:
-        #default if not set
+        #default
         figsize = plt.rcParams.get('figure.figsize')
 
     if xyticks==False:
-        #show no categories if x & y are is False
+        #if x & y are is False, no categories show
         categories=False
 
 
-    # crating the heatmap
+    # creating a heatmap
     plt.figure(figsize=figsize)
     sns.heatmap(cf,annot=box_labels,fmt="",cmap=cmap,cbar=cbar,xticklabels=categories,yticklabels=categories)
 
@@ -588,9 +567,8 @@ def make_confusion_matrix(cf,
     if title:
         plt.title(title)
 
-from sklearn.metrics import confusion_matrix
+#creating another confusion matrix
 cm = confusion_matrix(y_pre_test, y_pred)
-#cm = pd.DataFrame(cm , index = ['0','1'] , columns = ['0','1'])
 
 plt.figure(figsize = (10,10))
 sns.heatmap(cm/np.sum(cm),
