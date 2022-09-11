@@ -119,7 +119,7 @@ for i in range(10):
 train_df = pd.DataFrame(train, columns=['image', 'label'])
 test_df = pd.DataFrame(test, columns = ['image', 'label'])
 
-train_df['label'].head()
+train_df['label'].head(10)
 
 plt.figure(figsize=(18, 8))
 sns.set_style("darkgrid")
@@ -169,7 +169,7 @@ X_train, y_train = splitdata(train)
 X_test, y_test = splitdata(test)
 
 #  converting to grayscale, normalizing, and reshaping the table
-def preprocesing_to_mlp(data):
+def preprocesing(data):
     data1 = color.rgb2gray(data).reshape(-1, img_size * img_size).astype('float32')
     
     # normalizing data
@@ -244,231 +244,6 @@ print('Test accuracy: {}%'.format(score[1] * 100))
 print("MLP Error: %.2f%%" % (100 - score[1] * 100))
 
 draw_learning_curve(learning_history)
-
-"""# Data preparing for CNN"""
-
-#reshaping the data again
-X_train, y_train = splitdata(train)
-X_test, y_test = splitdata(test)
-
-#Grayscale conversion, normalization and table reshaping
-def preprocesing_to_cnn(data):
-    data1 = color.rgb2gray(data).reshape(-1, img_size, img_size, 1).astype('float32')
-    data1 /= 200
-    return data1
-
-X_train = preprocesing_to_cnn(X_train)
-X_test = preprocesing_to_cnn(X_test)
-
-# one-hot encoding for target column
-y_train = to_categorical(y_train)
-y_test = to_categorical(y_test)
-
-num_classes = y_train.shape[1]
-
-input_shape = (img_size, img_size, 1)
-
-callbacks2 = [ 
-    EarlyStopping(monitor = 'loss', patience = 10), 
-    ReduceLROnPlateau(monitor = 'loss', patience = 5), 
-    ModelCheckpoint('/content/model.best2.hdf5', monitor='loss' , save_best_only=True) # saving the best model
-]
-
-num_pixels
-
-"""#### First model CNN"""
-
-def medhack22():
-    return Sequential([
-        
-        Conv2D(20, kernel_size=(5, 5), activation='relu', padding='same', input_shape = input_shape),
-        Conv2D(20, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(45, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(45, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(64, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(64, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(84, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(84, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(128, kernel_size=(5, 5), activation='relu', padding='same' ),
-        Conv2D(128, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(200, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(200, kernel_size=(5, 5), activation='relu', padding='same'),
-        Conv2D(256, kernel_size=(5, 5), activation='relu', padding='same' ),
-        Conv2D(256, kernel_size=(5, 5), activation='relu', padding='same'),
-        BatchNormalization(),
-        MaxPool2D(pool_size=(2, 2)),
-        Dropout(0.25),
-        
-        Flatten(),
-        
-        Dense(512, activation='relu'),
-        Dense(256, activation='relu'),
-        Dense(64, activation='relu'),
-        Dropout(0.5),
-        
-        Dense(num_classes, activation = "softmax")
-        
-    ])
-
-model = medhack22()
-model.compile(loss='categorical_crossentropy', optimizer='Adam', metrics=['accuracy'])
-model.summary()
-
-"""#### Fitting the model"""
-
-learning_history = model.fit(X_train, y_train,
-          batch_size = 64,
-          epochs = 50,
-          verbose = 1,
-          callbacks = callbacks2,
-          validation_data = (X_test, y_test))
-
-model = load_model('/content/model.best2.hdf5')
-
-# evaluating the model
-score = model.evaluate(X_test, y_test, verbose = 0)
-print('Test loss: {}%'.format(score[0] * 100))
-print('Test accuracy: {}%'.format(score[1] * 100))
-
-print("MLP Error: %.2f%%" % (100 - score[1] * 100))
-
-# creating a visual
-draw_learning_curve(learning_history)
-
-"""# Data Augmentation"""
-
-datagen = ImageDataGenerator(
-        featurewise_center = False,
-        samplewise_center = False,
-        featurewise_std_normalization = False, 
-        samplewise_std_normalization = False,
-        zca_whitening = False,
-        horizontal_flip = False,
-        vertical_flip = False,
-        rotation_range = 10,  
-        zoom_range = 0.1, 
-        width_shift_range = 0.1, 
-        height_shift_range = 0.1)
-
-datagen.fit(X_train)
-train_gen = datagen.flow(X_train, y_train, batch_size = 32)
-
-"""/content/chest_xray/train/NORMAL/IM-0115-0001.jpeg"""
-
-# defining the image
-img = load_img('/content/chest_xray/train/NORMAL/IM-0115-0001.jpeg')
-plt.imshow(img)
-
-data = img_to_array(img)
-samples = expand_dims(data, 0)
-
-# creating an array
-datagen = ImageDataGenerator(featurewise_center = False,
-        samplewise_center = False,
-        featurewise_std_normalization = False, 
-        samplewise_std_normalization = False,
-        zca_whitening = False,
-        horizontal_flip = False,
-        vertical_flip = False,
-        rotation_range = 10,  
-        zoom_range = 0.1, 
-        width_shift_range = 0.1, 
-        height_shift_range = 0.1)
-
-_ = datagen.flow(samples, batch_size=1)
-
-figure(figsize=(20, 12), dpi=80)
-
-for i in range(4):
-    batch = _.next()
-    image = batch[0].astype('uint8')
-    plt.subplot(140 + 1 + i)
-    plt.imshow(image)
-    plt.xticks([])
-    plt.yticks([])
-plt.show()
-
-# defining the callback
-callbacks3 = [ 
-    EarlyStopping(monitor = 'loss', patience = 7), 
-    ReduceLROnPlateau(monitor = 'loss', patience = 4), 
-    ModelCheckpoint('/content/model.best3.hdf5', monitor='loss' , save_best_only=True) # saving the best model
-]
-
-"""#### Second model CNN"""
-
-def medhack22_v2():
-    return Sequential([
-        Conv2D(35, kernel_size=(3, 3), activation='relu', padding='same', input_shape = input_shape),
-        Conv2D(35, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(45, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(45, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(64, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(80, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(80, kernel_size=(3, 3), activation='relu', padding='same'),
-        Conv2D(100, kernel_size=(3, 3), activation='relu', padding='same' ),
-        Conv2D(100, kernel_size=(3, 3), activation='relu', padding='same'),
-        BatchNormalization(),
-        MaxPool2D(pool_size=(2, 2)),
-        Dropout(0.25),
-        
-        Flatten(),
-        
-        Dense(510, activation='relu'),
-        Dense(255, activation='relu'),
-        Dense(120, activation='relu'),
-        Dense(64, activation='relu'),
-        Dropout(0.5),
-        
-        Dense(num_classes, activation = "softmax")
-        
-    ])
-
-"""#### Fitting the model"""
-
-learning_history = model.fit_generator((train_gen), 
-                               epochs = 100, 
-                               steps_per_epoch = X_train.shape[0] // 32,
-                               validation_data = (X_test, y_test),
-                               callbacks = callbacks3,
-                        )
-
-#loading model
-model = load_model('/content/model.best3.hdf5')
-
-# evaluating the model
-score = model.evaluate(X_test, y_test, verbose = 0)
-print('Test loss: {}%'.format(score[0] * 100))
-print('Test accuracy: {}%'.format(score[1] * 100))
-
-print("MLP Error: %.2f%%" % (100 - score[1] * 100))
-
-#creating a visual for the model
-draw_learning_curve(learning_history)
-
-# checking for invalidity
-y_pred = model.predict(X_test)
-y_pred = np.argmax(y_pred, axis = 1)
-
-y_pre_test = np.argmax(y_test, axis = 1)
-
-def show_condition(num):
-    if num == 0:
-        return 'NORMAL'
-    return 'PNEUMONIA'
-
-# creating a visual
-cnt_error = []
-for idx, (a, b) in enumerate(zip(y_pre_test, y_pred)):
-    if a == b: continue
-    cnt_error.append(a)# test
-
-cnt_error = np.unique(cnt_error, return_counts = True)
-sns.set_style("darkgrid")
-plt.figure(figsize = (15, 7))
-sns.barplot([show_condition(x) for x in cnt_error[0]], cnt_error[1], palette="muted")
-plt.show()
 
 # viewing xrays
 cnt_ind = 1
@@ -567,27 +342,4 @@ def confusion_matrix(cf,
     if title:
         plt.title(title)
 
-#creating another confusion matrix
-cm = confusion_matrix(y_pre_test, y_pred)
-
-plt.figure(figsize = (10,10))
-sns.heatmap(cm/np.sum(cm),
-            cmap= "Blues", 
-            linecolor = 'black' , 
-            linewidth = 1 , 
-            annot = True, 
-            fmt='.2%',
-            xticklabels = labels,
-            yticklabels = labels)
-plt.ylabel('Actual')
-plt.xlabel('Predicted')
-
-heatmap_labels = ['True Neg','False Pos','False Neg','True Pos']
-categories = labels
-
-plt.figure(figsize = (10,10))
-make_confusion_matrix(cm, 
-                      group_names=heatmap_labels,
-                      figsize = (10,10),
-                      categories=categories, 
-                      cmap='Blues')
+draw_learning_curve(learning_history)
